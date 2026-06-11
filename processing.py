@@ -98,53 +98,37 @@ def json_to_strings(transcript_json: list[dict], with_timestamps: bool) -> list[
     return lines_list
 
 
-async def tg_file_to_transcript_json(file_id: str, bot: Bot) -> list:
-    file_name = "source"
-    with TemporaryDirectory(prefix="transcript_") as tempdir:
-        tempdir_path = Path(tempdir)
-        source_file_path = tempdir_path / file_name
-        file = await bot.get_file(file_id)
-        await bot.download(file, destination=source_file_path)
-        wav_path = extract_to_wav(source_file_path, tempdir_path)
-        transcript_json = wav_transcription(wav_path, tempdir_path)
-    return transcript_json
-
-
-async def web_file_to_transcript_json(url: str) -> list:
-    with TemporaryDirectory(prefix="transcript_") as tempdir:
-        tempdir_path = Path(tempdir)
-        audio_downloader.yt_dlp_download_audio(url, tempdir_path)
-        source_file_path = tempdir_path / "source_file"
-        wav_path = extract_to_wav(source_file_path, tempdir_path)
-        transcript_json = wav_transcription(wav_path, tempdir_path)
-    return transcript_json
-
-
-# TODO: объединить
 async def media_to_transcript_json(message_info: MessageInfo, bot: Bot) -> list:
-    result = None
-    if message_info["source"] == "telegram":
-        result = await tg_file_to_transcript_json(message_info["source_ref"], bot)
-    elif message_info["source"] == "web":
-        result = await web_file_to_transcript_json(message_info["source_ref"])
-    if result:
-        return result
-    else:
-        raise
+    source_ref = message_info["source_ref"]
+    with TemporaryDirectory(prefix="transcript_") as tempdir:
+        tempdir_path = Path(tempdir)
+        source_file_path = tempdir_path / "source_file"
+        if message_info["source"] == "telegram":
+            file = await bot.get_file(source_ref)
+            await bot.download(file, destination=source_file_path)
+        elif message_info["source"] == "web":
+            audio_downloader.download_audio(source_ref, source_file_path)
+        else:
+            raise ValueError("Wrong source type")
+        if not source_file_path.exists():
+            raise RuntimeError("No file was downloaded")
+        wav_path = extract_to_wav(source_file_path, tempdir_path)
+        transcript_json = wav_transcription(wav_path, tempdir_path)
+    return transcript_json
 
 
 async def get_file_unique_id(message_info: MessageInfo, bot: Bot) -> str:
-    result = None
+    id = None
     source_ref = message_info["source_ref"]
     if message_info["source"] == "telegram":
         file = await bot.get_file(source_ref)
-        result = file.file_unique_id
+        id = file.file_unique_id
     elif message_info["source"] == "web":
-        result = audio_downloader.get_unique_id(source_ref)
-    if result:
-        return result
+        id = audio_downloader.get_unique_id(source_ref)
+    if id:
+        return id
     else:
-        raise
+        raise RuntimeError("No media ID was found")
 
 
 async def get_transcript_lines(

@@ -26,50 +26,30 @@ async def summarize(message: Message, command: CommandObject):
 async def url_dlp(message: Message, command: CommandObject):
     url = command.args
     if url:
-        db = get_db()
-        messages_info = db["messages_info"]
-        try:
-            message_unique_id = f"{message.chat.id}-{message.message_id}"
-            messages_info[message_unique_id] = {
-                "source": "web",
-                "source_ref": url,
-                "file_unique_id": None,
-                "message_id": message.message_id,
-                "chat_id": message.chat.id,
-                "creation_datetime": datetime.now(UTC).isoformat(),
-            }
-            await message.answer(
-                "Url received\nChoose an action",
-                reply_markup=media_file_buttons(message_unique_id),
-            )
-            save_db()
-        except TypeError:
-            # But not all the types is supported to be copied so need to handle it
-            await message.answer("Some type error")
+        await manage_media(message, "web", url, "URL")
 
 
 @rt.message(F.voice | F.audio | F.video | F.video_note)
 async def media_file_processing(message: Message) -> None:
+    content_type = ContentType(message.content_type).value
+    file_id = getattr(message, message.content_type).file_id
+    await manage_media(message, "telegram", file_id, content_type.capitalize())
+
+
+async def manage_media(message: Message, source: str, source_ref, content_type) -> None:
     db = get_db()
     messages_info = db["messages_info"]
-    try:
-        content_type = ContentType(message.content_type).value
-        file_instance = getattr(message, message.content_type)
-        message_unique_id = f"{message.chat.id}-{message.message_id}"
-        messages_info[message_unique_id] = {
-            "source": "telegram",
-            "source_ref": file_instance.file_id,
-            "file_unique_id": None,
-            "message_id": message.message_id,
-            "chat_id": message.chat.id,
-            "creation_datetime": datetime.now(UTC).isoformat(),
-        }
-        await message.answer(
-            f"{content_type.capitalize()} message received\nChoose an action",
-            reply_markup=media_file_buttons(message_unique_id),
-        )
-        save_db()
-
-    except TypeError:
-        # But not all the types is supported to be copied so need to handle it
-        await message.answer("Some type error")
+    message_unique_id = f"{message.chat.id}-{message.message_id}"
+    messages_info[message_unique_id] = {
+        "source": source,
+        "source_ref": source_ref,
+        "file_unique_id": None,
+        "message_id": message.message_id,
+        "chat_id": message.chat.id,
+        "creation_datetime": datetime.now(UTC).isoformat(),
+    }
+    await message.answer(
+        f"{content_type} message received\nChoose an action",
+        reply_markup=media_file_buttons(message_unique_id),
+    )
+    save_db()
