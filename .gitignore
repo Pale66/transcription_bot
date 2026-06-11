@@ -1,0 +1,36 @@
+# Byte-compiled
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Neovim
+.nvim/
+
+
+# Type checking
+.pyright/
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+
+#Third Party
+Third Part/
+whisper.cpp/
+llama.cpp/
+
+.env
+todo.txt
+*.lnk
+db.json
