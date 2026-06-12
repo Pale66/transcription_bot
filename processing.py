@@ -139,8 +139,11 @@ async def get_transcript_lines(
     if not message_info["file_unique_id"]:
         message_info["file_unique_id"] = await get_file_unique_id(message_info, bot)
     file_unique_id = message_info["file_unique_id"]
-    if file_caches.get(file_unique_id):
-        file_cache = file_caches[message_info["file_unique_id"]]
+    if (
+        file_caches.get(file_unique_id)
+        and file_caches[file_unique_id]["transcript_json"]
+    ):
+        file_cache = file_caches[file_unique_id]
         transcript_json = file_cache.get("transcript_json")
     else:
         transcript_json = await media_to_transcript_json(message_info, bot)
