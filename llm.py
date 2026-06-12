@@ -5,7 +5,7 @@ import atexit
 from pathlib import Path
 import requests as r
 import json
-from config import LLM_MODEL_PATH, LLAMA_EXE
+from config import LLM_MODEL_PATH, LLAMA_BIN
 
 LLAMA_ARGS = [
     "-fa",
@@ -22,7 +22,7 @@ COMPLETIONS_URL = r"http://127.0.0.1:8080/v1/chat/completions"
 
 def start_llama():
     llama_instance = subprocess.Popen(
-        args=[str(LLAMA_EXE), *LLAMA_ARGS],
+        args=[str(LLAMA_BIN), *LLAMA_ARGS],
         stderr=subprocess.DEVNULL,
         stdout=subprocess.DEVNULL,
     )
