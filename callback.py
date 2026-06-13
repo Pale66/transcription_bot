@@ -7,8 +7,8 @@ from aiogram.types import (
 
 from buttons import delete_button, media_file_buttons, timestamps_check_buttons
 from json_db import MessageInfo, get_db
-from llm import send_req
-from processing import chankify_message, get_transcript_lines
+from llm import request_summary
+from whisper import chankify_message, get_transcript_lines
 
 rt = Router()
 
@@ -73,15 +73,10 @@ async def delete_action(callback: CallbackQuery, bot: Bot):
         await bot.delete_message(chat_id=chat_id, message_id=int(id))
 
 
-async def transcription_action(message_info: MessageInfo, bot: Bot, check: bool):
-    reply_lines = await get_transcript_lines(message_info, bot, check)
-    await send_safe_chunks(message_info, bot, reply_lines)
-
-
 async def summarize_action(message_info: MessageInfo, bot: Bot):
     transcript_lines = await get_transcript_lines(message_info, bot, False)
     text = "".join(transcript_lines)
-    response = send_req(text)
+    response = request_summary(text)
     reply_lines = response.splitlines(keepends=True)
     await send_safe_chunks(message_info, bot, reply_lines)
 
@@ -91,19 +86,19 @@ async def send_safe_chunks(
     message_info: MessageInfo, bot: Bot, reply_lines: list[str]
 ) -> None:
     reply_chunks = chankify_message(reply_lines)
-    reply_messages = []
-    for reply in reply_chunks:
-        reply_messages.append(
-            await bot.send_message(
-                chat_id=message_info["chat_id"],
-                text=reply,
-                reply_parameters=ReplyParameters(message_id=message_info["message_id"]),
-                disable_notification=True,
-            )
-        )
+    last_message = ""
     reply_ids = []
-    for reply_message in reply_messages:
-        reply_ids.append(str(reply_message.message_id))
-    await reply_messages[-1].edit_reply_markup(
-        reply_markup=delete_button(reply_messages[-1].chat.id, reply_ids)
-    )
+    for reply in reply_chunks:
+        last_message = await bot.send_message(
+            chat_id=message_info["chat_id"],
+            text=reply,
+            reply_parameters=ReplyParameters(message_id=message_info["message_id"]),
+            disable_notification=True,
+        )
+        reply_ids.append(last_message.message_id)
+    if last_message:
+        await last_message.edit_reply_markup(
+            reply_markup=delete_button(str(message_info["chat_id"]), reply_ids)
+        )
+    else:
+        raise RuntimeError("Не было отправлено ни одно сообщение")

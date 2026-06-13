@@ -2,7 +2,6 @@ from time import sleep
 from datetime import datetime
 import subprocess
 import atexit
-from pathlib import Path
 import requests as r
 import json
 from config import LLM_MODEL_PATH, LLAMA_BIN
@@ -29,7 +28,7 @@ def start_llama():
     atexit.register(llama_instance.terminate)
 
 
-def send_req(text: str) -> str:
+def request_summary(text: str) -> str:
     start = datetime.now()
     data_json = {
         "messages": [
@@ -69,4 +68,4 @@ if __name__ == "__main__":
                 pass
 
             sleep(1)
-        print(send_req(input("Вводи текст\n")))
+        print(request_summary(input("Вводи текст\n")))

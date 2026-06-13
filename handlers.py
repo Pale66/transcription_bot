@@ -9,7 +9,7 @@ from aiogram.types import (
 
 from buttons import media_file_buttons
 from json_db import get_db, save_db
-from llm import send_req
+from llm import request_summary
 
 rt = Router()
 
@@ -18,7 +18,7 @@ rt = Router()
 async def summarize(message: Message, command: CommandObject):
     text = command.args
     if text:
-        response = send_req(text)
+        response = request_summary(text)
         await message.answer(response)
 
 
