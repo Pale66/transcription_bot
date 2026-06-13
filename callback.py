@@ -95,7 +95,7 @@ async def send_safe_chunks(
             reply_parameters=ReplyParameters(message_id=message_info["message_id"]),
             disable_notification=True,
         )
-        reply_ids.append(last_message.message_id)
+        reply_ids.append(str(last_message.message_id))
     if last_message:
         await last_message.edit_reply_markup(
             reply_markup=delete_button(str(message_info["chat_id"]), reply_ids)
