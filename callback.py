@@ -63,9 +63,17 @@ async def timestamps_actions(callback: CallbackQuery, bot: Bot):
             reply_markup=media_file_buttons(message_unique_id)
         )
         waiting_message = await callback.message.answer("Processing in progress...")
-        reply_lines = await get_transcript_lines(message_info, bot, (action == "True"))
-        await send_safe_chunks(message_info, bot, reply_lines)
-        await bot.delete_message(callback.message.chat.id, waiting_message.message_id)
+        try:
+            reply_lines = await get_transcript_lines(
+                message_info, bot, (action == "True")
+            )
+            await send_safe_chunks(message_info, bot, reply_lines)
+        except Exception as e:
+            await callback.message.answer(f"Error: {e}")
+        finally:
+            await bot.delete_message(
+                callback.message.chat.id, waiting_message.message_id
+            )
 
 
 @rt.callback_query(F.data.startswith("delete_"))
@@ -82,7 +90,7 @@ async def delete_action(callback: CallbackQuery, bot: Bot):
 async def summarize_action(message_info: MessageInfo, bot: Bot):
     transcript_lines = await get_transcript_lines(message_info, bot, False)
     text = "".join(transcript_lines)
-    response = request_summary(text)
+    response = await request_summary(text)
     reply_lines = response.splitlines(keepends=True)
     await send_safe_chunks(message_info, bot, reply_lines)
 

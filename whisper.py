@@ -106,17 +106,7 @@ async def media_to_transcript_json(message_info: MessageInfo, bot: Bot) -> list:
     with TemporaryDirectory(prefix="transcript_") as tempdir:
         tempdir_path = Path(tempdir)
         source_file_path = tempdir_path / "source_file"
-        if message_info["source"] == "telegram":
-            file = await bot.get_file(source_ref)
-            await bot.download(file, destination=source_file_path)
-        elif message_info["source"] == "web":
-            await asyncio.to_thread(
-                audio_downloader.download_audio, source_ref, source_file_path
-            )
-        else:
-            raise ValueError("Wrong source type")
-        if not source_file_path.exists():
-            raise RuntimeError("No file was downloaded")
+        await download_file(message_info["source"], source_ref, source_file_path, bot)
         async with gpu_semaphore:
             wav_path = await asyncio.to_thread(
                 extract_to_wav, source_file_path, tempdir_path
@@ -125,6 +115,20 @@ async def media_to_transcript_json(message_info: MessageInfo, bot: Bot) -> list:
                 wav_transcription, wav_path, tempdir_path
             )
     return transcript_json
+
+
+async def download_file(source, source_ref, source_file_path, bot) -> None:
+    if source == "telegram":
+        file = await bot.get_file(source_ref)
+        await bot.download(file, destination=source_file_path)
+    elif source == "web":
+        await asyncio.to_thread(
+            audio_downloader.download_audio, source_ref, source_file_path
+        )
+    else:
+        raise ValueError("Wrong source type")
+    if not source_file_path.exists():
+        raise RuntimeError("No file was downloaded")
 
 
 async def get_file_unique_id(message_info: MessageInfo, bot: Bot) -> str:
