@@ -29,6 +29,11 @@ async def url_dlp(message: Message, command: CommandObject):
         await manage_media(message, "web", url, "URL")
 
 
+@rt.message(Command("test"))
+async def test_handl(message: Message):
+    await message.answer("Test message")
+
+
 @rt.message(F.voice | F.audio | F.video | F.video_note)
 async def media_file_processing(message: Message) -> None:
     content_type = ContentType(message.content_type).value

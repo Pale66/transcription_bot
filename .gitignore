@@ -34,3 +34,4 @@ llama.cpp/
 todo.txt
 *.lnk
 db.json
+pyrightconfig.json

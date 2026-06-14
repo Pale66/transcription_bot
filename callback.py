@@ -81,7 +81,6 @@ async def summarize_action(message_info: MessageInfo, bot: Bot):
     await send_safe_chunks(message_info, bot, reply_lines)
 
 
-# TODO: это надо поделить и убрать в модуль
 async def send_safe_chunks(
     message_info: MessageInfo, bot: Bot, reply_lines: list[str]
 ) -> None:

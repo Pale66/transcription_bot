@@ -15,6 +15,8 @@ LLAMA_ARGS = [
     str(LLM_MODEL_PATH),
     "--sleep-idle-seconds",
     "10",
+    "-t",
+    "6",
 ]
 COMPLETIONS_URL = r"http://127.0.0.1:8080/v1/chat/completions"
 

@@ -3,12 +3,15 @@ import subprocess
 from datetime import datetime
 from pathlib import Path
 from tempfile import TemporaryDirectory
+import asyncio
 
 from aiogram import Bot
 
 from json_db import MessageInfo, get_db, save_db
 from config import WHISPER_BIN, WHISPER_MODEL_PATH
 import audio_downloader
+
+gpu_semaphore = asyncio.Semaphore(1)
 
 
 def extract_to_wav(source_path: Path, workdir: Path) -> Path:
@@ -107,13 +110,20 @@ async def media_to_transcript_json(message_info: MessageInfo, bot: Bot) -> list:
             file = await bot.get_file(source_ref)
             await bot.download(file, destination=source_file_path)
         elif message_info["source"] == "web":
-            audio_downloader.download_audio(source_ref, source_file_path)
+            await asyncio.to_thread(
+                audio_downloader.download_audio, source_ref, source_file_path
+            )
         else:
             raise ValueError("Wrong source type")
         if not source_file_path.exists():
             raise RuntimeError("No file was downloaded")
-        wav_path = extract_to_wav(source_file_path, tempdir_path)
-        transcript_json = wav_transcription(wav_path, tempdir_path)
+        async with gpu_semaphore:
+            wav_path = await asyncio.to_thread(
+                extract_to_wav, source_file_path, tempdir_path
+            )
+            transcript_json = await asyncio.to_thread(
+                wav_transcription, wav_path, tempdir_path
+            )
     return transcript_json
 
 
