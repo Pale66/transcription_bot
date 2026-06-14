@@ -51,7 +51,7 @@ async def timestamps_actions(callback: CallbackQuery, bot: Bot):
         return
     action, message_unique_id = callback.data.split(sep=":")
     message_info = messages_info.get(message_unique_id)
-    action = action.split("_")[1] == "True"
+    action = action.split("_")[1]
     if isinstance(callback.message, InaccessibleMessage) or not callback.message:
         return
     if not message_info or action == "cancel":
@@ -63,7 +63,7 @@ async def timestamps_actions(callback: CallbackQuery, bot: Bot):
             reply_markup=media_file_buttons(message_unique_id)
         )
         waiting_message = await callback.message.answer("Processing in progress...")
-        reply_lines = await get_transcript_lines(message_info, bot, action)
+        reply_lines = await get_transcript_lines(message_info, bot, (action == "True"))
         await send_safe_chunks(message_info, bot, reply_lines)
         await bot.delete_message(callback.message.chat.id, waiting_message.message_id)
 
