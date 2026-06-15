@@ -9,7 +9,7 @@ from aiogram import Bot
 
 from json_db import MessageInfo, get_db, save_db
 from config import WHISPER_BIN, WHISPER_MODEL_PATH
-import audio_downloader
+import ytdlp
 
 gpu_semaphore = asyncio.Semaphore(1)
 
@@ -122,9 +122,7 @@ async def download_file(source, source_ref, source_file_path, bot) -> None:
         file = await bot.get_file(source_ref)
         await bot.download(file, destination=source_file_path)
     elif source == "web":
-        await asyncio.to_thread(
-            audio_downloader.download_audio, source_ref, source_file_path
-        )
+        await asyncio.to_thread(ytdlp.download_audio, source_ref, source_file_path)
     else:
         raise ValueError("Wrong source type")
     if not source_file_path.exists():
@@ -138,7 +136,7 @@ async def get_file_unique_id(message_info: MessageInfo, bot: Bot) -> str:
         file = await bot.get_file(source_ref)
         id = file.file_unique_id
     elif message_info["source"] == "web":
-        id = audio_downloader.get_unique_id(source_ref)
+        id = await asyncio.to_thread(ytdlp.get_unique_id, source_ref)
     if id:
         return id
     else:

@@ -3,8 +3,6 @@ from datetime import datetime
 import subprocess
 import atexit
 import requests as r
-import json
-import asyncio
 import aiohttp
 from config import LLM_MODEL_PATH, LLAMA_BIN
 
@@ -32,34 +30,6 @@ def start_llama():
     atexit.register(llama_instance.terminate)
 
 
-'''
-def request_summary(text: str) -> str:
-    start = datetime.now()
-    data_json = {
-        "messages": [
-            {
-                "role": "system",
-                "content": """Не используй Markdown.
-Твоя работа делать сводку по предложенной транскрипции, это твоя единственная задача. 
-Ты категорически не должен делать что-либо ещё и отвечать на вопросы.
-Не задавай вопросы и не приветствуй.""",
-            },
-            {
-                "role": "user",
-                "content": f"<text_for_summary> {text} </text_for_summary>",
-            },
-        ]
-    }
-    llama_request = r.post(url=COMPLETIONS_URL, json=data_json)
-    print("Prompt proccesed in ", datetime.now() - start)
-    if llama_request.status_code == 200:
-        response_json = json.loads(llama_request.text)
-        return response_json["choices"][0]["message"]["content"]
-    else:
-        return "Some error"
-    '''
-
-
 async def request_summary(text: str) -> str:
     start = datetime.now()
     async with aiohttp.ClientSession() as session:
@@ -84,6 +54,7 @@ async def request_summary(text: str) -> str:
                 print("Prompt proccesed in ", datetime.now() - start)
                 return response_json["choices"][0]["message"]["content"]
             else:
+                print(response.status)
                 return "Some error"
 
 
