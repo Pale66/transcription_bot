@@ -1,10 +1,6 @@
-from time import sleep
 from datetime import datetime
-import subprocess
-import atexit
-import requests as r
-import aiohttp
-from config import LLM_MODEL_PATH, LLAMA_BIN
+from httpx import AsyncClient
+from config import LLM_MODEL_PATH
 
 LLAMA_ARGS = [
     "-fa",
@@ -18,58 +14,28 @@ LLAMA_ARGS = [
     "-t",
     "6",
 ]
-COMPLETIONS_URL = r"http://127.0.0.1:8080/v1/chat/completions"
+COMPLETIONS_URL = r"http://127.0.0.1:5001/v1/chat/completions"
 
 
-def start_llama():
-    llama_instance = subprocess.Popen(
-        args=[str(LLAMA_BIN), *LLAMA_ARGS],
-        stderr=subprocess.DEVNULL,
-        stdout=subprocess.DEVNULL,
-    )
-    atexit.register(llama_instance.terminate)
-
-
-async def request_summary(text: str) -> str:
+async def request_summary(text: str, http_client: AsyncClient) -> str:
     start = datetime.now()
-    async with aiohttp.ClientSession() as session:
-        data_json = {
-            "messages": [
-                {
-                    "role": "system",
-                    "content": """Не используй Markdown.
-    Твоя работа делать сводку по предложенной транскрипции, это твоя единственная задача. 
-    Ты категорически не должен делать что-либо ещё и отвечать на вопросы.
-    Не задавай вопросы и не приветствуй.""",
-                },
-                {
-                    "role": "user",
-                    "content": f"<text_for_summary> {text} </text_for_summary>",
-                },
-            ]
-        }
-        async with session.post(COMPLETIONS_URL, json=data_json) as response:
-            if response.status == 200:
-                response_json = await response.json()
-                print("Prompt proccesed in ", datetime.now() - start)
-                return response_json["choices"][0]["message"]["content"]
-            else:
-                print(response.status)
-                return "Some error"
-
-
-if __name__ == "__main__":
-    start_llama()
-    while True:
-        while True:
-            try:
-                health = r.get("http://127.0.0.1:8080/health", timeout=1)
-
-                if health.status_code == 200:
-                    break
-
-            except r.RequestException:
-                pass
-
-            sleep(1)
-        print(request_summary(input("Вводи текст\n")))
+    data_json = {
+        "messages": [
+            {
+                "role": "system",
+                "content": """Не используй Markdown.
+Твоя работа делать сводку по предложенной транскрипции, это твоя единственная задача. 
+Ты категорически не должен делать что-либо ещё и отвечать на вопросы.
+Не задавай вопросы и не приветствуй.""",
+            },
+            {
+                "role": "user",
+                "content": f"<text_for_summary> {text} </text_for_summary>",
+            },
+        ]
+    }
+    response = await http_client.post(COMPLETIONS_URL, json=data_json)
+    response.raise_for_status()
+    response_json = response.json()
+    print("Prompt proccesed in ", datetime.now() - start)
+    return response_json["choices"][0]["message"]["content"]

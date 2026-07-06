@@ -3,7 +3,6 @@ import logging
 import sys
 
 
-from llm import start_llama
 from json_db import init_db
 from handlers import rt as handlers_rt
 from callback import rt as callback_rt
@@ -14,16 +13,23 @@ from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.client.session.aiohttp import AiohttpSession
+from httpx import AsyncClient, Timeout
 
 
-dp = Dispatcher()
+timeout = Timeout(
+        connect=10.0,
+        read=300.0,
+        write=120.0,
+        pool=10.0,
+    )
+http_client = AsyncClient(timeout=timeout)
+dp = Dispatcher(http_client=http_client)
 dp.include_routers(handlers_rt, callback_rt)
 init_db(BASE_DIR)
 
 
 async def main() -> None:
     session = AiohttpSession(proxy=PROXY)
-    start_llama()
     bot = Bot(
         token=TOKEN,
         default=DefaultBotProperties(parse_mode=ParseMode.HTML),

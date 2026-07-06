@@ -1,19 +1,14 @@
 from sys import argv
 from config import PROXY, BASE_DIR
 from yt_dlp import YoutubeDL
-from typing import TYPE_CHECKING
 from pathlib import Path
 
 
-if TYPE_CHECKING:
-    from yt_dlp.YoutubeDL import _Params
-
-
-default_ydl_opts: _Params = {"proxy": PROXY}
+default_ydl_opts = {"proxy": PROXY}
 
 
 def is_valid_video(url: str) -> bool:
-    ydl_opts: _Params = default_ydl_opts | {
+    ydl_opts = default_ydl_opts | {
         "quiet": True,
         "skip_download": "True",
     }

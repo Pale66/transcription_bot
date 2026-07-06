@@ -1,74 +1,31 @@
-import json
-import subprocess
 from datetime import datetime
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import asyncio
+from httpx import AsyncClient
 
 from aiogram import Bot
 
 from json_db import MessageInfo, get_db, save_db
-from config import WHISPER_BIN, WHISPER_MODEL_PATH
 import ytdlp
 
 gpu_semaphore = asyncio.Semaphore(1)
 
 
-def extract_to_wav(source_path: Path, workdir: Path) -> Path:
-    """Принимает путь к аудио/видео и через ffmpeg возвращает путь
-    к .wav
-    """
-    output_audio_path = workdir / "output.wav"
-    try:
-        subprocess.run(
-            ["ffmpeg", "-y", "-i", source_path, output_audio_path],
-            check=True,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            encoding="utf-8",
-        )
-    except Exception as e:
-        print(e)
-    return output_audio_path
+WHISPER_URL = "http://127.0.0.1:5067/inference"
 
 
-def wav_transcription(wav_path: Path, workdir: Path) -> list[dict[str, str]]:
-    """Принимает путь к .wav, обрабатывает через whipser и возвращает
-    список строк транскрипции в видео словарей
-    """
+async def wav_transcription(
+    wav_path: Path, http_client: AsyncClient
+) -> list[dict[str, str]]:
     start = datetime.now()
-    json_path = workdir / "output"
-    try:
-        subprocess.run(
-            [
-                WHISPER_BIN,
-                "-m",
-                WHISPER_MODEL_PATH,
-                "-f",
-                wav_path,
-                "-of",
-                json_path,
-                "-l",
-                "auto",
-                "-t",
-                "12",
-                "-oj",
-            ],
-            check=True,
-            text=True,
-            capture_output=True,
-            encoding="utf-8",
-        )
-        with open(str(json_path) + ".json", "r", encoding="UTF-8") as f:
-            transcript_json = json.load(f)["transcription"]
-        print("Audio processed in", datetime.now() - start)
-        return transcript_json
-    except subprocess.CalledProcessError as e:
-        print(f"Subprocess error\n{e.output} --- stdout\n{e.stderr} --- stderr")
-        raise
-    except Exception as e:
-        print(e)
-        raise
+    with wav_path.open("rb") as wav_file:
+        files = {"file": wav_file, "response_format": "verbose_json"}
+        response = await http_client.post(WHISPER_URL, files=files)
+    response.raise_for_status()
+    response_json = response.json()
+    print("Audio processed in", datetime.now() - start)
+    return response_json["segments"]
 
 
 def chankify_message(lines_list: list[str]) -> list[str]:
@@ -94,26 +51,28 @@ def json_to_strings(transcript_json: list[dict], with_timestamps: bool) -> list[
     lines_list = []
     for line in transcript_json:
         if with_timestamps:
-            str_line = f"{line['timestamps']['from'].split(',', 1)[0]} {line['text'].strip()}\n"
+            timestamp_unform = line["start"]
+            minutes = int(timestamp_unform // 60)
+            seconds = int(timestamp_unform % 60)
+            timestamp_form = f"{minutes:02}:{seconds:02}"
+            str_line = f"{timestamp_form} {line['text'].strip()}\n"
         else:
             str_line = f"{line['text'].strip()}\n"
         lines_list.append(str_line)
     return lines_list
 
 
-async def media_to_transcript_json(message_info: MessageInfo, bot: Bot) -> list:
+async def media_to_transcript_json(
+    message_info: MessageInfo, bot: Bot, http_client: AsyncClient
+) -> list:
     source_ref = message_info["source_ref"]
     with TemporaryDirectory(prefix="transcript_") as tempdir:
         tempdir_path = Path(tempdir)
         source_file_path = tempdir_path / "source_file"
         await download_file(message_info["source"], source_ref, source_file_path, bot)
         async with gpu_semaphore:
-            wav_path = await asyncio.to_thread(
-                extract_to_wav, source_file_path, tempdir_path
-            )
-            transcript_json = await asyncio.to_thread(
-                wav_transcription, wav_path, tempdir_path
-            )
+            wav_path = source_file_path
+            transcript_json = await wav_transcription(wav_path, http_client)
     return transcript_json
 
 
@@ -144,7 +103,10 @@ async def get_file_unique_id(message_info: MessageInfo, bot: Bot) -> str:
 
 
 async def get_transcript_lines(
-    message_info: MessageInfo, bot: Bot, timestamps_check: bool
+    message_info: MessageInfo,
+    bot: Bot,
+    timestamps_check: bool,
+    http_client: AsyncClient,
 ) -> list[str]:
     db = get_db()
     file_caches = db["file_caches"]
@@ -158,7 +120,7 @@ async def get_transcript_lines(
         file_cache = file_caches[file_unique_id]
         transcript_json = file_cache.get("transcript_json")
     else:
-        transcript_json = await media_to_transcript_json(message_info, bot)
+        transcript_json = await media_to_transcript_json(message_info, bot, http_client)
         file_caches[file_unique_id] = {"transcript_json": transcript_json}
         save_db()
     reply_lines = json_to_strings(transcript_json, timestamps_check)

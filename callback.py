@@ -4,6 +4,7 @@ from aiogram.types import (
     InaccessibleMessage,
     ReplyParameters,
 )
+from httpx import AsyncClient
 
 from buttons import delete_button, media_file_buttons, timestamps_check_buttons
 from json_db import MessageInfo, get_db
@@ -14,7 +15,7 @@ rt = Router()
 
 
 @rt.callback_query(F.data.startswith("media_"))
-async def media_actions(callback: CallbackQuery, bot: Bot):
+async def media_actions(callback: CallbackQuery, bot: Bot, http_client: AsyncClient):
     db = get_db()
     messages_info = db["messages_info"]
     if not callback.data:
@@ -37,14 +38,16 @@ async def media_actions(callback: CallbackQuery, bot: Bot):
             )
         elif action == "summarize":
             waiting_message = await callback.message.answer("Processing in progress...")
-            await summarize_action(message_info, bot)
+            await summarize_action(message_info, bot, http_client)
             await bot.delete_message(
                 callback.message.chat.id, waiting_message.message_id
             )
 
 
 @rt.callback_query(F.data.startswith("timestamps_"))
-async def timestamps_actions(callback: CallbackQuery, bot: Bot):
+async def timestamps_actions(
+    callback: CallbackQuery, bot: Bot, http_client: AsyncClient
+):
     db = get_db()
     messages_info = db["messages_info"]
     if not callback.data:
@@ -65,11 +68,13 @@ async def timestamps_actions(callback: CallbackQuery, bot: Bot):
         waiting_message = await callback.message.answer("Processing in progress...")
         try:
             reply_lines = await get_transcript_lines(
-                message_info, bot, (action == "True")
+                message_info, bot, (action == "True"), http_client
             )
             await send_safe_chunks(message_info, bot, reply_lines)
         except Exception as e:
             await callback.message.answer(f"Error: {e}")
+            print(f"{type(e).__name__}: error type")
+            print(f"{repr(e)}: error repr")
         finally:
             await bot.delete_message(
                 callback.message.chat.id, waiting_message.message_id
@@ -87,10 +92,12 @@ async def delete_action(callback: CallbackQuery, bot: Bot):
         await bot.delete_message(chat_id=chat_id, message_id=int(id))
 
 
-async def summarize_action(message_info: MessageInfo, bot: Bot):
-    transcript_lines = await get_transcript_lines(message_info, bot, False)
+async def summarize_action(
+    message_info: MessageInfo, bot: Bot, http_client: AsyncClient
+):
+    transcript_lines = await get_transcript_lines(message_info, bot, False, http_client)
     text = "".join(transcript_lines)
-    response = await request_summary(text)
+    response = await request_summary(text, http_client)
     reply_lines = response.splitlines(keepends=True)
     await send_safe_chunks(message_info, bot, reply_lines)
 
@@ -104,9 +111,10 @@ async def send_safe_chunks(
     for reply in reply_chunks:
         last_message = await bot.send_message(
             chat_id=message_info["chat_id"],
-            text=reply,
+            text=f"<blockquote expandable>{reply}</blockquote>",
             reply_parameters=ReplyParameters(message_id=message_info["message_id"]),
             disable_notification=True,
+            parse_mode="HTML",
         )
         reply_ids.append(str(last_message.message_id))
     if last_message:
@@ -114,4 +122,4 @@ async def send_safe_chunks(
             reply_markup=delete_button(str(message_info["chat_id"]), reply_ids)
         )
     else:
-        raise RuntimeError("Не было отправлено ни одно сообщение")
+        raise RuntimeError("No messages was sent")

@@ -6,6 +6,7 @@ from aiogram.filters import Command, CommandObject
 from aiogram.types import (
     Message,
 )
+from httpx import AsyncClient
 
 from buttons import media_file_buttons
 from json_db import get_db, save_db
@@ -15,10 +16,10 @@ rt = Router()
 
 
 @rt.message(Command("summarize"))
-async def summarize(message: Message, command: CommandObject):
+async def summarize(message: Message, command: CommandObject, http_client: AsyncClient):
     text = command.args
     if text:
-        response = request_summary(text)
+        response = await request_summary(text, http_client)
         await message.answer(response)
 
 
