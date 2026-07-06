@@ -1,3 +1,5 @@
+import asyncio
+
 from aiogram import Bot, F, Router
 from aiogram.types import (
     CallbackQuery,
@@ -15,7 +17,12 @@ rt = Router()
 
 
 @rt.callback_query(F.data.startswith("media_"))
-async def media_actions(callback: CallbackQuery, bot: Bot, http_client: AsyncClient):
+async def media_actions(
+    callback: CallbackQuery,
+    bot: Bot,
+    http_client: AsyncClient,
+    gpu_semaphore: asyncio.Semaphore,
+):
     db = get_db()
     messages_info = db["messages_info"]
     if not callback.data:
@@ -38,7 +45,7 @@ async def media_actions(callback: CallbackQuery, bot: Bot, http_client: AsyncCli
             )
         elif action == "summarize":
             waiting_message = await callback.message.answer("Processing in progress...")
-            await summarize_action(message_info, bot, http_client)
+            await summarize_action(message_info, bot, http_client, gpu_semaphore)
             await bot.delete_message(
                 callback.message.chat.id, waiting_message.message_id
             )
@@ -46,7 +53,10 @@ async def media_actions(callback: CallbackQuery, bot: Bot, http_client: AsyncCli
 
 @rt.callback_query(F.data.startswith("timestamps_"))
 async def timestamps_actions(
-    callback: CallbackQuery, bot: Bot, http_client: AsyncClient
+    callback: CallbackQuery,
+    bot: Bot,
+    http_client: AsyncClient,
+    gpu_semaphore: asyncio.Semaphore,
 ):
     db = get_db()
     messages_info = db["messages_info"]
@@ -68,7 +78,7 @@ async def timestamps_actions(
         waiting_message = await callback.message.answer("Processing in progress...")
         try:
             reply_lines = await get_transcript_lines(
-                message_info, bot, (action == "True"), http_client
+                message_info, bot, (action == "True"), http_client, gpu_semaphore
             )
             await send_safe_chunks(message_info, bot, reply_lines)
         except Exception as e:
@@ -93,11 +103,16 @@ async def delete_action(callback: CallbackQuery, bot: Bot):
 
 
 async def summarize_action(
-    message_info: MessageInfo, bot: Bot, http_client: AsyncClient
+    message_info: MessageInfo,
+    bot: Bot,
+    http_client: AsyncClient,
+    gpu_semaphore: asyncio.Semaphore,
 ):
-    transcript_lines = await get_transcript_lines(message_info, bot, False, http_client)
+    transcript_lines = await get_transcript_lines(
+        message_info, bot, False, http_client, gpu_semaphore
+    )
     text = "".join(transcript_lines)
-    response = await request_summary(text, http_client)
+    response = await request_summary(text, http_client, gpu_semaphore)
     reply_lines = response.splitlines(keepends=True)
     await send_safe_chunks(message_info, bot, reply_lines)
 

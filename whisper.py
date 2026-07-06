@@ -8,11 +8,7 @@ from aiogram import Bot
 
 from json_db import MessageInfo, get_db, save_db
 import ytdlp
-
-gpu_semaphore = asyncio.Semaphore(1)
-
-
-WHISPER_URL = "http://127.0.0.1:5067/inference"
+from config import whisper_url
 
 
 async def wav_transcription(
@@ -21,7 +17,7 @@ async def wav_transcription(
     start = datetime.now()
     with wav_path.open("rb") as wav_file:
         files = {"file": wav_file, "response_format": "verbose_json"}
-        response = await http_client.post(WHISPER_URL, files=files)
+        response = await http_client.post(whisper_url, files=files)
     response.raise_for_status()
     response_json = response.json()
     print("Audio processed in", datetime.now() - start)
@@ -63,7 +59,10 @@ def json_to_strings(transcript_json: list[dict], with_timestamps: bool) -> list[
 
 
 async def media_to_transcript_json(
-    message_info: MessageInfo, bot: Bot, http_client: AsyncClient
+    message_info: MessageInfo,
+    bot: Bot,
+    http_client: AsyncClient,
+    gpu_semaphore: asyncio.Semaphore,
 ) -> list:
     source_ref = message_info["source_ref"]
     with TemporaryDirectory(prefix="transcript_") as tempdir:
@@ -107,6 +106,7 @@ async def get_transcript_lines(
     bot: Bot,
     timestamps_check: bool,
     http_client: AsyncClient,
+    gpu_semaphore: asyncio.Semaphore,
 ) -> list[str]:
     db = get_db()
     file_caches = db["file_caches"]
@@ -120,7 +120,9 @@ async def get_transcript_lines(
         file_cache = file_caches[file_unique_id]
         transcript_json = file_cache.get("transcript_json")
     else:
-        transcript_json = await media_to_transcript_json(message_info, bot, http_client)
+        transcript_json = await media_to_transcript_json(
+            message_info, bot, http_client, gpu_semaphore
+        )
         file_caches[file_unique_id] = {"transcript_json": transcript_json}
         save_db()
     reply_lines = json_to_strings(transcript_json, timestamps_check)

@@ -1,10 +1,9 @@
-from sys import argv
-from config import PROXY, BASE_DIR
+from config import proxy
 from yt_dlp import YoutubeDL
 from pathlib import Path
 
 
-default_ydl_opts = {"proxy": PROXY}
+default_ydl_opts = {"proxy": proxy}
 
 
 def is_valid_video(url: str) -> bool:
@@ -38,12 +37,3 @@ def get_unique_id(url: str) -> str:
     with YoutubeDL(ydl_opts) as ydl:
         unique_id = ydl.extract_info(url, download=False)["id"]
     return unique_id
-
-
-if __name__ == "__main__":
-    url = argv[1]
-    output_dir = BASE_DIR
-    if is_valid_video(url):
-        download_audio(url, output_dir)
-    else:
-        print("Wrong url")

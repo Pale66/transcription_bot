@@ -1,23 +1,12 @@
+import asyncio
 from datetime import datetime
 from httpx import AsyncClient
-from config import LLM_MODEL_PATH
-
-LLAMA_ARGS = [
-    "-fa",
-    "on",
-    "-rea",
-    "off",
-    "-m",
-    str(LLM_MODEL_PATH),
-    "--sleep-idle-seconds",
-    "10",
-    "-t",
-    "6",
-]
-COMPLETIONS_URL = r"http://127.0.0.1:5001/v1/chat/completions"
+from config import completion_url
 
 
-async def request_summary(text: str, http_client: AsyncClient) -> str:
+async def request_summary(
+    text: str, http_client: AsyncClient, gpu_semaphore: asyncio.Semaphore
+) -> str:
     start = datetime.now()
     data_json = {
         "messages": [
@@ -34,7 +23,8 @@ async def request_summary(text: str, http_client: AsyncClient) -> str:
             },
         ]
     }
-    response = await http_client.post(COMPLETIONS_URL, json=data_json)
+    async with gpu_semaphore:
+        response = await http_client.post(completion_url, json=data_json)
     response.raise_for_status()
     response_json = response.json()
     print("Prompt proccesed in ", datetime.now() - start)

@@ -1,3 +1,4 @@
+import asyncio
 from datetime import UTC, datetime
 
 from aiogram import F, Router
@@ -16,10 +17,15 @@ rt = Router()
 
 
 @rt.message(Command("summarize"))
-async def summarize(message: Message, command: CommandObject, http_client: AsyncClient):
+async def summarize(
+    message: Message,
+    command: CommandObject,
+    http_client: AsyncClient,
+    gpu_semaphore: asyncio.Semaphore,
+):
     text = command.args
     if text:
-        response = await request_summary(text, http_client)
+        response = await request_summary(text, http_client, gpu_semaphore)
         await message.answer(response)
 
 
