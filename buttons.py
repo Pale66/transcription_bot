@@ -2,64 +2,64 @@ from aiogram.types import (
     InlineKeyboardButton,
     InlineKeyboardMarkup,
 )
+from classes import MediaAction, MediaCallback
 
 
-def media_file_buttons(message_unique_id: str):
+def media_file_buttons(chat_id: str, message_id: str):
+    summarize_data = MediaCallback(
+        action=MediaAction.SUMMARIZE, chat_id=chat_id, message_id=message_id
+    )
+    transcribe_data = MediaCallback(
+        action=MediaAction.TRANSCRIBE, chat_id=chat_id, message_id=message_id
+    )
     buttons = [
         [
             InlineKeyboardButton(
-                text="Transcription",
-                callback_data=f"media_transcription:{message_unique_id}",
+                text="Transcribe",
+                callback_data=transcribe_data.pack(),
             ),
-            InlineKeyboardButton(
-                text="Summarize", callback_data=f"media_summarize:{message_unique_id}"
-            ),
-        ],
-        # [InlineKeyboardButton(text="Cancel", callback_data=f"media_cancel:{task_id}")],
+            InlineKeyboardButton(text="Summarize", callback_data=summarize_data.pack()),
+        ]
     ]
     keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
     return keyboard
 
 
-def delete_button(chat_id: str, message_ids: list[str]):
-    callback_data = f"{chat_id},{','.join(message_ids)}"
-    if len(message_ids) > 1:
-        buttons = [
-            [
-                InlineKeyboardButton(
-                    text="Remove messages",
-                    callback_data=f"delete_{callback_data}",
-                ),
-            ],
-        ]
-    else:
-        buttons = [
-            [
-                InlineKeyboardButton(
-                    text="Remove message",
-                    callback_data=f"delete_{callback_data}",
-                ),
-            ],
-        ]
+def delete_group_button():
+    buttons = [
+        [
+            InlineKeyboardButton(
+                text="Remove messages",
+                callback_data="delete_group",
+            ),
+        ],
+    ]
     keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
     return keyboard
 
 
-def timestamps_check_buttons(message_unique_id: str):
+def timestamps_check_buttons(callback_data: MediaCallback):
     buttons = [
         [
             InlineKeyboardButton(
                 text="With timestamps",
-                callback_data=f"timestamps_True:{message_unique_id}",
+                callback_data=callback_data.model_copy(
+                    update={"timestamps": True}
+                ).pack(),
             ),
             InlineKeyboardButton(
                 text="Without timestamps",
-                callback_data=f"timestamps_False:{message_unique_id}",
+                callback_data=callback_data.model_copy(
+                    update={"timestamps": False}
+                ).pack(),
             ),
         ],
         [
             InlineKeyboardButton(
-                text="Cancel", callback_data=f"timestamps_cancel:{message_unique_id}"
+                text="Cancel",
+                callback_data=callback_data.model_copy(
+                    update={"action": MediaAction.CANCEL}
+                ).pack(),
             )
         ],
     ]

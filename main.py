@@ -24,9 +24,9 @@ timeout = Timeout(
 )
 http_client = AsyncClient(timeout=timeout)
 gpu_semaphore = asyncio.Semaphore(1)
-dp = Dispatcher(http_client=http_client, gpu_semaphore=gpu_semaphore)
+db = init_db(base_dir)
+dp = Dispatcher(http_client=http_client, gpu_semaphore=gpu_semaphore, db=db)
 dp.include_routers(handlers_rt, callback_rt)
-init_db(base_dir)
 
 
 async def main() -> None:

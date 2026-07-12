@@ -10,7 +10,7 @@ from aiogram.types import (
 from httpx import AsyncClient
 
 from buttons import media_file_buttons
-from json_db import get_db, save_db
+from json_db import MessageData, get_db, save_db, FileInfo
 from llm import request_summary
 
 rt = Router()
@@ -48,20 +48,22 @@ async def media_file_processing(message: Message) -> None:
     await manage_media(message, "telegram", file_id, content_type.capitalize())
 
 
+# TODO: do something
 async def manage_media(message: Message, source: str, source_ref, content_type) -> None:
     db = get_db()
-    messages_info = db["messages_info"]
-    message_unique_id = f"{message.chat.id}-{message.message_id}"
-    messages_info[message_unique_id] = {
+    chats = db["chats"]
+    message_id = str(message.message_id)
+    chat_id = str(message.chat.id)
+    file_info: FileInfo = {
         "source": source,
         "source_ref": source_ref,
         "file_unique_id": None,
-        "message_id": message.message_id,
-        "chat_id": message.chat.id,
         "creation_datetime": datetime.now(UTC).isoformat(),
     }
+    message_data: MessageData = {"file_info": file_info}
+    chats[chat_id] = {message_id: message_data}
     await message.answer(
         f"{content_type} message received\nChoose an action",
-        reply_markup=media_file_buttons(message_unique_id),
+        reply_markup=media_file_buttons(chat_id, message_id),
     )
     save_db()

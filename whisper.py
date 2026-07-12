@@ -6,7 +6,7 @@ from httpx import AsyncClient
 
 from aiogram import Bot
 
-from json_db import MessageInfo, get_db, save_db
+from json_db import FileInfo, get_db, save_db
 import ytdlp
 from config import whisper_url
 
@@ -59,7 +59,7 @@ def json_to_strings(transcript_json: list[dict], with_timestamps: bool) -> list[
 
 
 async def media_to_transcript_json(
-    message_info: MessageInfo,
+    message_info: FileInfo,
     bot: Bot,
     http_client: AsyncClient,
     gpu_semaphore: asyncio.Semaphore,
@@ -67,27 +67,27 @@ async def media_to_transcript_json(
     source_ref = message_info["source_ref"]
     with TemporaryDirectory(prefix="transcript_") as tempdir:
         tempdir_path = Path(tempdir)
-        source_file_path = tempdir_path / "source_file"
-        await download_file(message_info["source"], source_ref, source_file_path, bot)
+        media_file_path = tempdir_path / "source_file"
+        await download_file(message_info["source"], source_ref, media_file_path, bot)
         async with gpu_semaphore:
-            wav_path = source_file_path
+            wav_path = media_file_path
             transcript_json = await wav_transcription(wav_path, http_client)
     return transcript_json
 
 
-async def download_file(source, source_ref, source_file_path, bot) -> None:
+async def download_file(source, source_ref, media_file_path, bot) -> None:
     if source == "telegram":
         file = await bot.get_file(source_ref)
-        await bot.download(file, destination=source_file_path)
+        await bot.download(file, destination=media_file_path)
     elif source == "web":
-        await asyncio.to_thread(ytdlp.download_audio, source_ref, source_file_path)
+        await asyncio.to_thread(ytdlp.download_audio, source_ref, media_file_path)
     else:
         raise ValueError("Wrong source type")
-    if not source_file_path.exists():
+    if not media_file_path.exists():
         raise RuntimeError("No file was downloaded")
 
 
-async def get_file_unique_id(message_info: MessageInfo, bot: Bot) -> str:
+async def get_file_unique_id(message_info: FileInfo, bot: Bot) -> str:
     id = None
     source_ref = message_info["source_ref"]
     if message_info["source"] == "telegram":
@@ -102,28 +102,28 @@ async def get_file_unique_id(message_info: MessageInfo, bot: Bot) -> str:
 
 
 async def get_transcript_lines(
-    message_info: MessageInfo,
+    file_info: FileInfo,
     bot: Bot,
     timestamps_check: bool,
     http_client: AsyncClient,
     gpu_semaphore: asyncio.Semaphore,
 ) -> list[str]:
     db = get_db()
-    file_caches = db["file_caches"]
-    if not message_info["file_unique_id"]:
-        message_info["file_unique_id"] = await get_file_unique_id(message_info, bot)
-    file_unique_id = message_info["file_unique_id"]
+    transcript_caches = db["transcript_caches"]
+    if not file_info["file_unique_id"]:
+        file_info["file_unique_id"] = await get_file_unique_id(file_info, bot)
+    file_unique_id = file_info["file_unique_id"]
     if (
-        file_caches.get(file_unique_id)
-        and file_caches[file_unique_id]["transcript_json"]
+        transcript_caches.get(file_unique_id)
+        and transcript_caches[file_unique_id]["transcript_json"]
     ):
-        file_cache = file_caches[file_unique_id]
+        file_cache = transcript_caches[file_unique_id]
         transcript_json = file_cache.get("transcript_json")
     else:
         transcript_json = await media_to_transcript_json(
-            message_info, bot, http_client, gpu_semaphore
+            file_info, bot, http_client, gpu_semaphore
         )
-        file_caches[file_unique_id] = {"transcript_json": transcript_json}
+        transcript_caches[file_unique_id] = {"transcript_json": transcript_json}
         save_db()
     reply_lines = json_to_strings(transcript_json, timestamps_check)
     return reply_lines

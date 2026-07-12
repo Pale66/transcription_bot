@@ -1,140 +1,165 @@
 import asyncio
 
 from aiogram import Bot, F, Router
-from aiogram.types import (
-    CallbackQuery,
-    InaccessibleMessage,
-    ReplyParameters,
-)
+from aiogram.types import CallbackQuery, ReplyParameters, Message
 from httpx import AsyncClient
 
-from buttons import delete_button, media_file_buttons, timestamps_check_buttons
-from json_db import MessageInfo, get_db
+from buttons import delete_group_button, media_file_buttons, timestamps_check_buttons
+from json_db import MessageData, get_db, JsonDB
 from llm import request_summary
 from whisper import chankify_message, get_transcript_lines
+from classes import MediaAction, MediaCallback
 
 rt = Router()
 
 
-@rt.callback_query(F.data.startswith("media_"))
-async def media_actions(
+# TODO: do something
+@rt.callback_query(MediaCallback.filter(F.action == MediaAction.TRANSCRIBE))
+async def transcribe_action(
     callback: CallbackQuery,
     bot: Bot,
     http_client: AsyncClient,
     gpu_semaphore: asyncio.Semaphore,
+    callback_data: MediaCallback,
+    db: JsonDB,
 ):
-    db = get_db()
-    messages_info = db["messages_info"]
-    if not callback.data:
+    message = callback.message
+    if not isinstance(message, Message):
         return
-    action, message_unique_id = callback.data.split(sep=":")
-    message_info = messages_info.get(message_unique_id)
-    action = action.split("_")[1]
-    if isinstance(callback.message, InaccessibleMessage) or not callback.message:
-        return
-    if not message_info or action == "cancel":
-        messages_info.pop(message_unique_id, None)
-        await callback.message.edit_reply_markup(reply_markup=None)
-        await callback.message.edit_text(
-            text="File is unaccesible or removed\nSend a new file"
+    if callback_data.timestamps is None:
+        await message.edit_reply_markup(
+            reply_markup=timestamps_check_buttons(callback_data)
         )
     else:
-        if action == "transcription":
-            await callback.message.edit_reply_markup(
-                reply_markup=timestamps_check_buttons(message_unique_id)
-            )
-        elif action == "summarize":
-            waiting_message = await callback.message.answer("Processing in progress...")
-            await summarize_action(message_info, bot, http_client, gpu_semaphore)
-            await bot.delete_message(
-                callback.message.chat.id, waiting_message.message_id
-            )
+        chats = db["chats"]
+        chat_id = callback_data.chat_id
+        message_id = callback_data.message_id
+        chat = chats.get(chat_id)
+        if chat:
+            message_data = chat.get(message_id)
+            if not message_data:
+                await bot.delete_message(chat_id, int(message_id))
+            else:
+                file_info = message_data.get("file_info")
+                if not file_info:
+                    return
+                await message.edit_reply_markup(
+                    reply_markup=media_file_buttons(chat_id, message_id)
+                )
+                waiting_message = await message.answer("Processing in progress...")
+                try:
+                    reply_lines = await get_transcript_lines(
+                        file_info,
+                        bot,
+                        callback_data.timestamps,
+                        http_client,
+                        gpu_semaphore,
+                    )
+                    await send_safe_chunks(chat, chat_id, message_id, bot, reply_lines)
+                except Exception as e:
+                    await message.answer(f"Error: {e}")
+                    print(f"{type(e).__name__}: error type")
+                    print(f"{repr(e)}: error repr")
+                finally:
+                    await bot.delete_message(
+                        message.chat.id, waiting_message.message_id
+                    )
 
 
-@rt.callback_query(F.data.startswith("timestamps_"))
-async def timestamps_actions(
+@rt.callback_query(MediaCallback.filter(F.action == MediaAction.SUMMARIZE))
+async def summarize_actions(
     callback: CallbackQuery,
     bot: Bot,
     http_client: AsyncClient,
     gpu_semaphore: asyncio.Semaphore,
+    callback_data: MediaCallback,
+    db: JsonDB,
 ):
     db = get_db()
-    messages_info = db["messages_info"]
-    if not callback.data:
+    chats = db["chats"]
+    chat_id = callback_data.chat_id
+    message_id = callback_data.message_id
+    chats = chats.get(chat_id)
+    if not chats:
         return
-    action, message_unique_id = callback.data.split(sep=":")
-    message_info = messages_info.get(message_unique_id)
-    action = action.split("_")[1]
-    if isinstance(callback.message, InaccessibleMessage) or not callback.message:
+    message_data = chats.get(message_id)
+    message = callback.message
+    if not message_data:
+        # TODO: добавить нотификацию какую то
         return
-    if not message_info or action == "cancel":
-        await callback.message.edit_reply_markup(
-            reply_markup=media_file_buttons(message_unique_id)
+    if not isinstance(message, Message):
+        return
+    file_info = message_data.get("file_info")
+    if file_info:
+        waiting_message = await message.answer("Processing in progress...")
+        transcript_lines = await get_transcript_lines(
+            file_info, bot, False, http_client, gpu_semaphore
         )
+        text = "".join(transcript_lines)
+        response = await request_summary(text, http_client, gpu_semaphore)
+        reply_lines = response.splitlines(keepends=True)
+        await send_safe_chunks(chats, chat_id, message_id, bot, reply_lines)
+        await bot.delete_message(chat_id, waiting_message.message_id)
     else:
-        await callback.message.edit_reply_markup(
-            reply_markup=media_file_buttons(message_unique_id)
-        )
-        waiting_message = await callback.message.answer("Processing in progress...")
-        try:
-            reply_lines = await get_transcript_lines(
-                message_info, bot, (action == "True"), http_client, gpu_semaphore
-            )
-            await send_safe_chunks(message_info, bot, reply_lines)
-        except Exception as e:
-            await callback.message.answer(f"Error: {e}")
-            print(f"{type(e).__name__}: error type")
-            print(f"{repr(e)}: error repr")
-        finally:
-            await bot.delete_message(
-                callback.message.chat.id, waiting_message.message_id
-            )
+        raise RuntimeError("File info should exist")
 
 
-@rt.callback_query(F.data.startswith("delete_"))
-async def delete_action(callback: CallbackQuery, bot: Bot):
-    if not callback.data:
-        return
-    data = callback.data.split("_")[1].split(",")
-    chat_id = data.pop(0)
-    message_ids = data
-    for id in message_ids:
-        await bot.delete_message(chat_id=chat_id, message_id=int(id))
-
-
-async def summarize_action(
-    message_info: MessageInfo,
-    bot: Bot,
-    http_client: AsyncClient,
-    gpu_semaphore: asyncio.Semaphore,
+@rt.callback_query(MediaCallback.filter(F.action == MediaAction.CANCEL))
+async def cancel_action(
+    callback: CallbackQuery,
+    callback_data: MediaCallback,
 ):
-    transcript_lines = await get_transcript_lines(
-        message_info, bot, False, http_client, gpu_semaphore
-    )
-    text = "".join(transcript_lines)
-    response = await request_summary(text, http_client, gpu_semaphore)
-    reply_lines = response.splitlines(keepends=True)
-    await send_safe_chunks(message_info, bot, reply_lines)
+    message = callback.message
+    if not isinstance(message, Message):
+        return
+    else:
+        chat_id = callback_data.chat_id
+        message_id = callback_data.message_id
+        await message.edit_reply_markup(
+            reply_markup=media_file_buttons(chat_id, message_id)
+        )
+
+
+@rt.callback_query(F.data == "delete_group")
+async def delete_action(callback: CallbackQuery, bot: Bot, db: JsonDB):
+    if not callback.data or not callback.message:
+        return
+    chat_id = str(callback.message.chat.id)
+    message_id = str(callback.message.message_id)
+    message_info = db["chats"][chat_id][message_id]
+    message_ids = message_info.get("message_group")
+    if message_ids:
+        for id in message_ids:
+            await bot.delete_message(chat_id=chat_id, message_id=int(id))
+    else:
+        raise RuntimeError(
+            "Message group should exist for delete button message "
+            f"(chat_id={chat_id}, message_id={message_id})."
+        )
 
 
 async def send_safe_chunks(
-    message_info: MessageInfo, bot: Bot, reply_lines: list[str]
+    chat_messages: dict[str, MessageData],
+    chat_id: str,
+    message_id: str,
+    bot: Bot,
+    reply_lines: list[str],
 ) -> None:
     reply_chunks = chankify_message(reply_lines)
     last_message = ""
     reply_ids = []
     for reply in reply_chunks:
         last_message = await bot.send_message(
-            chat_id=message_info["chat_id"],
+            chat_id=chat_id,
             text=f"<blockquote expandable>{reply}</blockquote>",
-            reply_parameters=ReplyParameters(message_id=message_info["message_id"]),
+            reply_parameters=ReplyParameters(message_id=int(message_id)),
             disable_notification=True,
             parse_mode="HTML",
         )
         reply_ids.append(str(last_message.message_id))
     if last_message:
-        await last_message.edit_reply_markup(
-            reply_markup=delete_button(str(message_info["chat_id"]), reply_ids)
-        )
+        last_message_id = str(last_message.message_id)
+        chat_messages[last_message_id] = {"message_group": reply_ids}
+        await last_message.edit_reply_markup(reply_markup=delete_group_button())
     else:
         raise RuntimeError("No messages was sent")
