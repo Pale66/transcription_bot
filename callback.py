@@ -13,7 +13,6 @@ from classes import MediaAction, MediaCallback
 rt = Router()
 
 
-# TODO: do something
 @rt.callback_query(MediaCallback.filter(F.action == MediaAction.TRANSCRIBE))
 async def transcribe_action(
     callback: CallbackQuery,
@@ -30,40 +29,39 @@ async def transcribe_action(
         await message.edit_reply_markup(
             reply_markup=timestamps_check_buttons(callback_data)
         )
-    else:
-        chats = db["chats"]
-        chat_id = callback_data.chat_id
-        message_id = callback_data.message_id
-        chat = chats.get(chat_id)
-        if chat:
-            message_data = chat.get(message_id)
-            if not message_data:
-                await bot.delete_message(chat_id, int(message_id))
-            else:
-                file_info = message_data.get("file_info")
-                if not file_info:
-                    return
-                await message.edit_reply_markup(
-                    reply_markup=media_file_buttons(chat_id, message_id)
-                )
-                waiting_message = await message.answer("Processing in progress...")
-                try:
-                    reply_lines = await get_transcript_lines(
-                        file_info,
-                        bot,
-                        callback_data.timestamps,
-                        http_client,
-                        gpu_semaphore,
-                    )
-                    await send_safe_chunks(chat, chat_id, message_id, bot, reply_lines)
-                except Exception as e:
-                    await message.answer(f"Error: {e}")
-                    print(f"{type(e).__name__}: error type")
-                    print(f"{repr(e)}: error repr")
-                finally:
-                    await bot.delete_message(
-                        message.chat.id, waiting_message.message_id
-                    )
+        return
+    chats = db["chats"]
+    chat_id = callback_data.chat_id
+    message_id = callback_data.message_id
+    messages = chats.get(chat_id)
+    if not messages:
+        return
+    message_data = messages.get(message_id)
+    if not message_data:
+        await bot.delete_message(chat_id, int(message_id))
+        return
+    file_info = message_data.get("file_info")
+    if not file_info:
+        return
+    await message.edit_reply_markup(
+        reply_markup=media_file_buttons(chat_id, message_id)
+    )
+    waiting_message = await message.answer("Processing in progress...")
+    try:
+        transcript_lines = await get_transcript_lines(
+            file_info,
+            bot,
+            callback_data.timestamps,
+            http_client,
+            gpu_semaphore,
+        )
+        await send_safe_chunks(messages, chat_id, message_id, bot, transcript_lines)
+    except Exception as e:
+        await message.answer(f"Error: {e}")
+        print(f"{type(e).__name__}: error type")
+        print(f"{repr(e)}: error repr")
+    finally:
+        await bot.delete_message(message.chat.id, waiting_message.message_id)
 
 
 @rt.callback_query(MediaCallback.filter(F.action == MediaAction.SUMMARIZE))
