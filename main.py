@@ -1,3 +1,4 @@
+from pathlib import Path
 import asyncio
 import logging
 import sys
@@ -6,7 +7,7 @@ import sys
 from json_db import init_db
 from handlers import rt as handlers_rt
 from callback import rt as callback_rt
-from config import base_dir, proxy, token
+from config import config
 
 
 from aiogram import Bot, Dispatcher
@@ -24,15 +25,18 @@ timeout = Timeout(
 )
 http_client = AsyncClient(timeout=timeout)
 gpu_semaphore = asyncio.Semaphore(1)
-db = init_db(base_dir)
+db = init_db(Path(__file__).parent)
 dp = Dispatcher(http_client=http_client, gpu_semaphore=gpu_semaphore, db=db)
 dp.include_routers(handlers_rt, callback_rt)
 
 
 async def main() -> None:
-    session = AiohttpSession(proxy=proxy)
+    session_args = {}
+    if config.proxy:
+        session_args["proxy"] = config.proxy
+    session = AiohttpSession(**session_args)
     bot = Bot(
-        token=token,
+        token=config.bot_token,
         default=DefaultBotProperties(parse_mode=ParseMode.HTML),
         session=session,
     )

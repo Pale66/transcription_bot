@@ -1,9 +1,11 @@
-from config import proxy
+from config import config
 from yt_dlp import YoutubeDL
 from pathlib import Path
 
 
-default_ydl_opts = {"proxy": proxy}
+default_ydl_opts = {}
+if config.proxy:
+    default_ydl_opts["proxy"] = config.proxy
 
 
 def is_valid_video(url: str) -> bool:
@@ -11,6 +13,7 @@ def is_valid_video(url: str) -> bool:
         "quiet": True,
         "skip_download": "True",
     }
+    ydl_opts = {}
 
     try:
         with YoutubeDL(ydl_opts) as ydl:

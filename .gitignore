@@ -35,3 +35,4 @@ todo.txt
 *.lnk
 db.json
 pyrightconfig.json
+config.json

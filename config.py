@@ -1,11 +1,20 @@
+import json
+from dataclasses import dataclass
 from dotenv import load_dotenv
-from pathlib import Path
 from os import getenv
 
 
+@dataclass
+class JsonConfig:
+    completion_url: str
+    whisper_url: str
+    proxy: str
+    bot_token: str
+
+
 load_dotenv()
-completion_url = r"http://127.0.0.1:5001/v1/chat/completions"
-whisper_url = r"http://127.0.0.1:5067/inference"
-base_dir = Path(__file__).parent
-token = str(getenv("BOT_TOKEN"))
-proxy = "socks5://127.0.0.1:2080"
+bot_token = str(getenv("BOT_TOKEN"))
+
+
+with open("config.json", "r") as f:
+    config = JsonConfig(str(getenv("BOT_TOKEN")), **(json.load(f)))

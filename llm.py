@@ -1,13 +1,15 @@
 import asyncio
 from datetime import datetime
 from httpx import AsyncClient
-from config import completion_url
+from config import config
 
 
 async def request_summary(
     text: str, http_client: AsyncClient, gpu_semaphore: asyncio.Semaphore
 ) -> str:
     start = datetime.now()
+    endpoint = f"{config.completion_url}/v1/chat/completions"
+
     data_json = {
         "messages": [
             {
@@ -24,7 +26,7 @@ async def request_summary(
         ]
     }
     async with gpu_semaphore:
-        response = await http_client.post(completion_url, json=data_json)
+        response = await http_client.post(endpoint, json=data_json)
     response.raise_for_status()
     response_json = response.json()
     print("Prompt proccesed in ", datetime.now() - start)

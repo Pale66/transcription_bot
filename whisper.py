@@ -8,16 +8,17 @@ from aiogram import Bot
 
 from json_db import FileInfo, get_db, save_db
 import ytdlp
-from config import whisper_url
+from config import config
 
 
 async def wav_transcription(
     wav_path: Path, http_client: AsyncClient
 ) -> list[dict[str, str]]:
     start = datetime.now()
+    endpoint = f"{config.whisper_url}/inference"
     with wav_path.open("rb") as wav_file:
         files = {"file": wav_file, "response_format": "verbose_json"}
-        response = await http_client.post(whisper_url, files=files)
+        response = await http_client.post(endpoint, files=files)
     response.raise_for_status()
     response_json = response.json()
     print("Audio processed in", datetime.now() - start)
