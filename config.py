@@ -17,4 +17,4 @@ bot_token = str(getenv("BOT_TOKEN"))
 
 
 with open("config.json", "r") as f:
-    config = JsonConfig(str(getenv("BOT_TOKEN")), **(json.load(f)))
+    config = JsonConfig(bot_token=bot_token, **(json.load(f)))
