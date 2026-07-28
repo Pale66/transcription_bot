@@ -26,7 +26,7 @@ class JsonDB(TypedDict):
 
 
 db: JsonDB | None = None
-_workdir: Path | None = None
+_db_path: Path | None = None
 
 
 def create_db() -> JsonDB:
@@ -35,9 +35,10 @@ def create_db() -> JsonDB:
 
 
 def save_db():
-    db_path = _workdir / "db.json"
-    with open(db_path, "w", encoding="UTF-8") as json_file:
-        json.dump(db, json_file, ensure_ascii=False)
+    db_path = _db_path
+    if db_path:
+        with open(db_path, "w", encoding="UTF-8") as json_file:
+            json.dump(db, json_file, ensure_ascii=False)
 
 
 def prune_db(db: JsonDB) -> bool:
@@ -69,8 +70,7 @@ def prune_db(db: JsonDB) -> bool:
     return is_updated
 
 
-def load_db(workdir: Path) -> JsonDB:
-    db_path = workdir / "db.json"
+def load_db(db_path: Path) -> JsonDB:
     if db_path.is_file():
         with open(db_path, "r", encoding="UTF-8") as json_file:
             db = json.load(json_file)
@@ -85,10 +85,10 @@ def load_db(workdir: Path) -> JsonDB:
     return db
 
 
-def init_db(workdir: Path):
-    global db, _workdir
-    _workdir = workdir
-    db = load_db(workdir)
+def init_db(db_path: Path):
+    global db, _db_path
+    _db_path = db_path
+    db = load_db(db_path)
     return db
 
 

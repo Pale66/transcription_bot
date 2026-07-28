@@ -25,7 +25,7 @@ timeout = Timeout(
 )
 http_client = AsyncClient(timeout=timeout)
 gpu_semaphore = asyncio.Semaphore(1)
-db = init_db(Path(__file__).parent)
+db = init_db(Path(__file__).parent / "data" / "db.json")
 dp = Dispatcher(http_client=http_client, gpu_semaphore=gpu_semaphore, db=db)
 dp.include_routers(handlers_rt, callback_rt)
 
