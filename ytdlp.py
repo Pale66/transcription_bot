@@ -4,8 +4,8 @@ from pathlib import Path
 
 
 default_ydl_opts = {}
-if config.proxy:
-    default_ydl_opts["proxy"] = config.proxy
+if config.proxy_url:
+    default_ydl_opts["proxy"] = config.proxy_url
 
 
 def is_valid_video(url: str) -> bool:

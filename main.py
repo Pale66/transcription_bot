@@ -32,8 +32,8 @@ dp.include_routers(handlers_rt, callback_rt)
 
 async def main() -> None:
     session_args = {}
-    if config.proxy:
-        session_args["proxy"] = config.proxy
+    if config.proxy_url:
+        session_args["proxy"] = config.proxy_url
     session = AiohttpSession(**session_args)
     bot = Bot(
         token=config.bot_token,
