@@ -1,4 +1,4 @@
-# Telegram Media Assistant Bot
+# Transcription Bot
 
 Telegram-бот для расшифровки и краткого пересказа медиа контента
 
