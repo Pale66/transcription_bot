@@ -33,6 +33,6 @@ llama.cpp/
 .env
 todo.txt
 *.lnk
-db.json
 pyrightconfig.json
-config.json
+data/
+compose.override.yaml

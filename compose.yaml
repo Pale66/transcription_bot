@@ -1,0 +1,13 @@
+services:
+  transcription_bot:
+    image: URL_NEEDED
+    volumes:
+      - bot_data:/app/data/
+    restart: unless-stopped
+    environment:
+      - BOT_TOKEN=YOUR_BOT_TOKEN
+      - COMPLETION_URL=YOUR_COMPLETION_URL
+      - WHISPER_URL=YOUR_COMPLETION_URL
+      - PROXY_URL=YOUR_COMPLETION_URL_IF_NEEDED
+volumes:
+  bot_data:
