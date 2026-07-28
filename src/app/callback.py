@@ -5,7 +5,7 @@ from aiogram.types import CallbackQuery, ReplyParameters, Message
 from httpx import AsyncClient
 
 from buttons import delete_group_button, media_file_buttons, timestamps_check_buttons
-from json_db import MessageData, get_db, JsonDB
+from json_db import MessageData, get_db, JsonDB, save_db
 from llm import request_summary
 from whisper import chankify_message, get_transcript_lines
 from classes import MediaAction, MediaCallback
@@ -158,6 +158,7 @@ async def send_safe_chunks(
     if last_message:
         last_message_id = str(last_message.message_id)
         chat_messages[last_message_id] = {"message_group": reply_ids}
+        save_db()
         await last_message.edit_reply_markup(reply_markup=delete_group_button())
     else:
         raise RuntimeError("No messages was sent")
