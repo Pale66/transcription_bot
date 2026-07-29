@@ -6,6 +6,8 @@ from aiogram.enums import ContentType
 from aiogram.filters import Command, CommandObject
 from aiogram.types import (
     Message,
+    ReplyParameters,
+    reply_parameters,
 )
 from httpx import AsyncClient
 
@@ -67,5 +69,6 @@ async def manage_media(message: Message, source: str, source_ref, content_type) 
     await message.answer(
         f"{content_type} message received\nChoose an action",
         reply_markup=media_file_buttons(chat_id, message_id),
+        reply_parameters=ReplyParameters(message_id=int(message_id)),
     )
     save_db()
