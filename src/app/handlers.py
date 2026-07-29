@@ -61,7 +61,9 @@ async def manage_media(message: Message, source: str, source_ref, content_type) 
         "creation_datetime": datetime.now(UTC).isoformat(),
     }
     message_data: MessageData = {"file_info": file_info}
-    chats[chat_id] = {message_id: message_data}
+    if not chats.get(chat_id):
+        chats[chat_id] = {}
+    chats[chat_id].update({message_id: message_data})
     await message.answer(
         f"{content_type} message received\nChoose an action",
         reply_markup=media_file_buttons(chat_id, message_id),

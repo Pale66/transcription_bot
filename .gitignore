@@ -34,5 +34,5 @@ llama.cpp/
 todo.txt
 *.lnk
 pyrightconfig.json
-data/
+db.json
 compose.override.yaml

@@ -36,9 +36,11 @@ def create_db() -> JsonDB:
 
 def save_db():
     db_path = _db_path
-    if db_path:
-        with open(db_path, "w", encoding="UTF-8") as json_file:
-            json.dump(db, json_file, ensure_ascii=False)
+    if not db_path:
+        raise RuntimeError("DB wasn't created")
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    with db_path.open("w", encoding="UTF-8") as json_file:
+        json.dump(db, json_file, ensure_ascii=False)
 
 
 def prune_db(db: JsonDB) -> bool:
