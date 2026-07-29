@@ -1,4 +1,4 @@
-name: Build and publish a Docker iamge
+name: Build and publish a Docker image
 
 on:
   push:
@@ -43,5 +43,8 @@ jobs:
         with:
           context: .
           push: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+
