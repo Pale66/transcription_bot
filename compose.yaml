@@ -1,13 +1,13 @@
 services:
-  transcription_bot:
-    image: URL_NEEDED
+  app:
+    image: ghcr.io/pale66/transcription_bot:main
     volumes:
       - bot_data:/app/data/
     restart: unless-stopped
     environment:
-      - BOT_TOKEN=YOUR_BOT_TOKEN
-      - COMPLETION_URL=YOUR_COMPLETION_URL
-      - WHISPER_URL=YOUR_COMPLETION_URL
-      - PROXY_URL=YOUR_COMPLETION_URL_IF_NEEDED
+      - BOT_TOKEN=${BOT_TOKEN:-YOUR_BOT_TOKEN}
+      - COMPLETION_URL=${COMPLETION_URL:-YOUR_COMPLETION_URL}
+      - WHISPER_URL=${WHISPER_URL:-YOUR_WHISPER_URL}
+      - PROXY_URL=${PROXY_URL:-YOUR_PROXY_URL}
 volumes:
   bot_data:
