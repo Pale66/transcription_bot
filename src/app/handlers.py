@@ -7,7 +7,6 @@ from aiogram.filters import Command, CommandObject
 from aiogram.types import (
     Message,
     ReplyParameters,
-    reply_parameters,
 )
 from httpx import AsyncClient
 
@@ -50,7 +49,6 @@ async def media_file_processing(message: Message) -> None:
     await manage_media(message, "telegram", file_id, content_type.capitalize())
 
 
-# TODO: do something
 async def manage_media(message: Message, source: str, source_ref, content_type) -> None:
     db = get_db()
     chats = db["chats"]

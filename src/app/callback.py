@@ -84,7 +84,6 @@ async def summarize_actions(
     message_data = chats.get(message_id)
     message = callback.message
     if not message_data:
-        # TODO: добавить нотификацию какую то
         return
     if not isinstance(message, Message):
         return
