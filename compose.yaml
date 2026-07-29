@@ -5,9 +5,9 @@ services:
       - bot_data:/app/data/
     restart: unless-stopped
     environment:
-      - BOT_TOKEN=${BOT_TOKEN:-YOUR_BOT_TOKEN}
-      - COMPLETION_URL=${COMPLETION_URL:-YOUR_COMPLETION_URL}
-      - WHISPER_URL=${WHISPER_URL:-YOUR_WHISPER_URL}
-      - PROXY_URL=${PROXY_URL:-YOUR_PROXY_URL}
+      - BOT_TOKEN=${BOT_TOKEN:?BOT_TOKEN is required}
+      - COMPLETION_URL=${COMPLETION_URL:?COMPLETION_URL is required}
+      - WHISPER_URL=${WHISPER_URL:?YOUR_WHISPER_URL is required}
+      - PROXY_URL=${PROXY_URL}
 volumes:
   bot_data:

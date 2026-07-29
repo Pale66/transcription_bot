@@ -26,27 +26,61 @@ Telegram-бот для расшифровки и краткого переска
 - OpenAI-compatible Whisper API — распознавание речи
 - OpenAI-compatible Chat Completions API — генерация краткого содержания.
 
-## Конфигурация
+## Переменные окружения
 
-Создайте `config.json` по примеру `config.example.json`.
+Приложение настраивается с помощью переменных окружения. При локальном запуске переменные также могут быть заданы в файле `.env`.
 
-Также необходимо задать переменную окружения:
+`BOT_TOKEN` — токен Telegram-бота. Обязательная переменная.
 
-```text
-BOT_TOKEN=<telegram_bot_token>
+`WHISPER_URL` — адрес OpenAI-совместимого API для транскрибации аудио. По умолчанию используется `http://127.0.0.1:5067`.
+
+`COMPLETION_URL` — адрес OpenAI-совместимого API для генерации текста. По умолчанию используется `http://127.0.0.1:5001`.
+
+`PROXY_URL` — адрес прокси-сервера. Переменная необязательна. Используется для подключения к серверам Telegram и yt-dlp. Если она не задана, приложение подключается напрямую.
+
+Пример файла `.env`:
+
+```env
+BOT_TOKEN=123456789:your_bot_token
+WHISPER_URL=http://127.0.0.1:5067
+COMPLETION_URL=http://127.0.0.1:5001
+PROXY_URL=socks5://127.0.0.1:2080
 ```
 
 ## Запуск
 
-```
+Для запуска в Windows:
+
+```powershell
 python -m venv .venv
 .venv/scripts/activate
 pip install -r requirements.txt
-python main.py
+python src/app/main.py
+```
+
+Для запуска в Linux:
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+python src/app/main.py
 ```
 
 Перед запуском убедитесь, что сервисы Whisper и LLM доступны по адресам,
-указанным в `config.json`.
+указанным в переменных окружения
+
+## Запуск через Docker Compose
+
+Для запуска скачайте `compose.yaml` из репозитория и задайте переменные окружения описанные выше в `.env` или средствами ОС.
+
+Для запуска:
+
+```bash
+docker compose up -d
+```
+
+Данные приложения сохраняются в именованном volume `bot_data`.
 
 ## Лицензия
 
